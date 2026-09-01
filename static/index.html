@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroAI Scout — анализ поля</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e130f;
+  --bg-2:#141c15;
+  --panel:#171f18;
+  --panel-2:#1c261d;
+  --border:#2b3a2a;
+  --gold:#e8b93f;
+  --gold-dim:#8a7231;
+  --red:#e2572b;
+  --green:#6fcf6f;
+  --text:#eceee4;
+  --dim:#93a08c;
+  --mono:'IBM Plex Mono',monospace;
+  --head:'Rajdhani',sans-serif;
+  --body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);}
+body{
+  background-image:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(232,185,63,0.06), transparent),
+    radial-gradient(ellipse 700px 500px at 100% 10%, rgba(111,207,111,0.05), transparent);
+  min-height:100vh;
+}
+a{color:var(--gold);}
+
+/* ---- top bar ---- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 28px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg, rgba(23,31,24,0.9), rgba(23,31,24,0.6));
+  position:sticky;top:0;z-index:20;backdrop-filter:blur(6px);
+}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-mark{
+  width:36px;height:36px;border-radius:50%;
+  border:2px solid var(--gold);position:relative;flex:none;
+}
+.brand-mark::before{
+  content:'';position:absolute;inset:8px;border-radius:50%;border:1px solid var(--gold-dim);
+}
+.brand-mark::after{
+  content:'';position:absolute;top:50%;left:50%;width:14px;height:2px;background:var(--gold);
+  transform-origin:left center;transform:translate(0,-50%) rotate(0deg);
+  animation:sweep 3.2s linear infinite;
+}
+@keyframes sweep{to{transform:translate(0,-50%) rotate(360deg);}}
+.brand-text{font-family:var(--head);font-weight:700;font-size:22px;letter-spacing:1px;line-height:1;}
+.brand-text span{color:var(--gold);}
+.brand-sub{font-family:var(--mono);font-size:10.5px;letter-spacing:2px;color:var(--dim);margin-top:2px;}
+.status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--dim);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+/* ---- layout ---- */
+.wrap{max-width:1280px;margin:0 auto;padding:28px;}
+.tabs{display:flex;gap:2px;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:fit-content;margin-bottom:22px;background:var(--panel);}
+.tab-btn{
+  font-family:var(--head);font-weight:600;letter-spacing:1.5px;font-size:14px;
+  color:var(--dim);background:transparent;border:none;padding:12px 22px;cursor:pointer;
+  transition:all .15s ease;border-right:1px solid var(--border);
+}
+.tab-btn:last-child{border-right:none;}
+.tab-btn.active{background:var(--gold);color:#161a0e;}
+.tab-btn:hover:not(.active){color:var(--text);background:var(--panel-2);}
+
+.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;align-items:start;}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+.panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;
+}
+.panel h3{font-family:var(--head);font-weight:600;letter-spacing:1px;font-size:15px;color:var(--gold);margin:0 0 14px;text-transform:uppercase;}
+
+/* ---- HUD viewport ---- */
+.viewport{
+  position:relative;aspect-ratio:16/10;border-radius:10px;overflow:hidden;
+  background:#090c09;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);
+}
+.viewport img, .viewport video, .viewport canvas{width:100%;height:100%;object-fit:contain;position:absolute;inset:0;}
+.corner{position:absolute;width:22px;height:22px;border-color:var(--gold);z-index:5;}
+.corner.tl{top:8px;left:8px;border-top:2px solid;border-left:2px solid;}
+.corner.tr{top:8px;right:8px;border-top:2px solid;border-right:2px solid;}
+.corner.bl{bottom:8px;left:8px;border-bottom:2px solid;border-left:2px solid;}
+.corner.br{bottom:8px;right:8px;border-bottom:2px solid;border-right:2px solid;}
+.scanline{
+  position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  box-shadow:0 0 12px var(--gold);opacity:0;z-index:4;
+}
+.scanning .scanline{opacity:1;animation:scan 1.6s ease-in-out infinite;}
+@keyframes scan{0%{top:6%;}50%{top:94%;}100%{top:6%;}}
+.viewport-empty{color:var(--dim);font-family:var(--mono);font-size:13px;text-align:center;padding:20px;z-index:1;}
+.viewport-empty .big{font-size:34px;display:block;margin-bottom:8px;opacity:.6;}
+
+.drop{
+  border:1.5px dashed var(--border);border-radius:10px;padding:26px;text-align:center;
+  cursor:pointer;transition:.15s;margin-top:14px;
+}
+.drop:hover{border-color:var(--gold-dim);background:var(--panel-2);}
+.drop.drag{border-color:var(--gold);background:var(--panel-2);}
+.drop p{margin:6px 0 0;font-size:13px;color:var(--dim);}
+.drop .icon{font-size:26px;}
+
+.btn{
+  font-family:var(--head);font-weight:600;letter-spacing:1px;font-size:14px;
+  background:var(--gold);color:#161a0e;border:none;border-radius:8px;padding:11px 20px;
+  cursor:pointer;transition:.15s;text-transform:uppercase;
+}
+.btn:hover{background:#f2c95a;}
+.btn:disabled{background:var(--border);color:var(--dim);cursor:not-allowed;}
+.btn.secondary{background:transparent;color:var(--text);border:1px solid var(--border);}
+.btn.secondary:hover{border-color:var(--gold-dim);}
+.btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+
+.field{margin-top:14px;}
+.field label{display:block;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}
+.field input[type=text]{
+  width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;color:var(--text);
+  padding:10px 12px;font-family:var(--mono);font-size:13px;
+}
+.field input[type=text]:focus{outline:none;border-color:var(--gold-dim);}
+.hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5;}
+
+input[type=range]{width:100%;accent-color:var(--gold);}
+.slider-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:4px;}
+.slider-val{color:var(--gold);}
+
+/* ---- telemetry / results ---- */
+.status-banner{
+  border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;
+  border:1px solid var(--border);
+}
+.status-banner .icon{font-size:22px;}
+.status-banner.healthy{border-color:rgba(111,207,111,.4);background:rgba(111,207,111,.08);}
+.status-banner.alert{border-color:rgba(226,87,43,.4);background:rgba(226,87,43,.08);}
+.status-banner.neutral{background:var(--panel-2);}
+.status-banner .title{font-family:var(--head);font-weight:600;font-size:15px;}
+.status-banner .sub{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:2px;}
+
+.stat-row{display:flex;gap:10px;margin-bottom:16px;}
+.stat{flex:1;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;}
+.stat .n{font-family:var(--mono);font-size:22px;color:var(--gold);font-weight:600;}
+.stat .l{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+
+.det-list{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;padding-right:4px;}
+.det-item{
+  display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:8px;padding:9px 11px;animation:pop .25s ease;
+}
+@keyframes pop{from{opacity:0;transform:translateX(6px);}to{opacity:1;transform:none;}}
+.swatch{width:9px;height:9px;border-radius:50%;flex:none;}
+.det-item .name{flex:1;font-size:13px;}
+.det-item .conf{font-family:var(--mono);font-size:12px;color:var(--dim);}
+.bar-track{width:44px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;flex:none;}
+.bar-fill{height:100%;border-radius:2px;}
+.empty-note{font-family:var(--mono);font-size:12px;color:var(--dim);text-align:center;padding:24px 0;}
+
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.legend .chip{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim);
+  background:var(--bg-2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;
+}
+.legend .chip .swatch{width:7px;height:7px;}
+
+/* video timeline */
+.timeline{display:flex;align-items:flex-end;gap:2px;height:50px;margin-top:10px;}
+.timeline .bar{flex:1;background:var(--gold-dim);border-radius:2px 2px 0 0;min-height:2px;}
+
+footer{text-align:center;padding:26px;font-family:var(--mono);font-size:11px;color:var(--dim);}
+
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+.spinner-text{font-family:var(--mono);font-size:12px;color:var(--gold);text-align:center;margin-top:10px;letter-spacing:1px;}
+
+/* ---- groq advice ---- */
+.advice-box{
+  margin-top:14px;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);
+  border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;
+}
+.advice-box.loading{color:var(--dim);font-family:var(--mono);font-size:12px;}
+.advice-label{display:flex;align-items:center;gap:6px;font-family:var(--head);font-weight:600;letter-spacing:1px;font-size:12px;color:var(--gold);text-transform:uppercase;margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <div>
+      <div class="brand-text">AGRO<span>AI</span> SCOUT</div>
+      <div class="brand-sub">ПОЛЕВАЯ РАЗВЕДКА · YOLO11</div>
+    </div>
+  </div>
+  <div class="status">
+    <span class="dot"></span> МОДЕЛЬ ЗАГРУЖЕНА · 22 КЛАССА
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="photo">ФОТО</button>
+    <button class="tab-btn" data-tab="video">ВИДЕО</button>
+    <button class="tab-btn" data-tab="camera">КАМЕРА</button>
+    <button class="tab-btn" data-tab="drone">ДРОН</button>
+  </div>
+
+  <!-- ================= PHOTO TAB ================= -->
+  <div class="tab-panel active" id="tab-photo">
+    <div class="grid">
+      <div class="panel">
+        <h3>Снимок поля</h3>
+        <div class="viewport" id="photo-viewport">
+          <div class="viewport-empty" id="photo-empty"><span class="big">◎</span>Загрузите фото поля или посева<br>для анализа вредителей и состояния</div>
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+          <div class="scanline"></div>
+        </div>
+        <div class="drop" id="photo-drop">
+          <div class="icon">⬆</div>
+          <p><strong style="color:var(--text)">Перетащите фото</strong> или нажмите, чтобы выбрать файл</p>
+        </div>
+        <input type="file" id="photo-input" accept="image/*" style="display:none">
+        <div class="field">
+          <div class="slider-row"><span>Порог уверенности</span><span class="slider-val" id="photo-conf-val">0.35</span></div>
+          <input type="range" id="photo-conf" min="0.1" max="0.9" step="0.05" value="0.35">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="photo-analyze" disabled>Анализировать</button>
+          <button class="btn secondary" id="photo-reset">Сбросить</button>
+        </div>
+        <div class="spinner-text" id="photo-spinner" style="display:none">СКАНИРОВАНИЕ ИЗОБРАЖЕНИЯ…</div>
+      </div>
+
+      <div class="panel">
+        <h3>Результат</h3>
+        <div id="photo-banner"></div>
+        <div class="stat-row">
+          <div class="stat"><div class="n" id="photo-total">0</div><div class="l">Объектов</div></div>
+          <div class="stat"><div class="n" id="photo-pests">0</div><div class="l">Вредителей</div></div>
+          <div class="stat"><div class="n" id="photo-ms">–</div><div class="l">мс</div></div>
+        </div>
+        <div class="det-list" id="photo-list"><div class="empty-note">Нет данных. Загрузите фото и нажмите «Анализировать».</div></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="photo-advice-btn" disabled>🤖 AI-рекомендация</button>
+        </div>
+        <div class="advice-box" id="photo-advice" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= VIDEO TAB ================= -->
+  <div class="tab-panel" id="tab-video">
+    <div class="grid">
+      <div class="panel">
+        <h3>Видео с поля</h3>
+        <div class="viewport" id="video-viewport">
+          <div class="viewport-empty" id="video-empty"><span class="big">▶</span>Загрузите видеозапись обхода поля</div>
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+          <div class="scanline"></div>
+        </div>
+        <div class="drop" id="video-drop">
+          <div class="icon">⬆</div>
+          <p><strong style="color:var(--text)">Перетащите видео (mp4)</strong> или нажмите для выбора</p>
+        </div>
+        <input type="file" id="video-input" accept="video/*" style="display:none">
+        <div class="field">
+          <div class="slider-row"><span>Порог уверенности</span><span class="slider-val" id="video-conf-val">0.35</span></div>
+          <input type="range" id="video-conf" min="0.1" max="0.9" step="0.05" value="0.35">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="video-analyze" disabled>Обработать видео</button>
+          <button class="btn secondary" id="video-reset">Сбросить</button>
+        </div>
+        <div class="spinner-text" id="video-spinner" style="display:none">ОБРАБОТКА ВИДЕО — ЭТО МОЖЕТ ЗАНЯТЬ ДО МИНУТЫ…</div>
+      </div>
+      <div class="panel">
+        <h3>Результат</h3>
+        <div class="stat-row">
+          <div class="stat"><div class="n" id="video-frames">0</div><div class="l">Кадров</div></div>
+          <div class="stat"><div class="n" id="video-dur">0</div><div class="l">Секунд</div></div>
+          <div class="stat"><div class="n" id="video-species">0</div><div class="l">Видов</div></div>
+        </div>
+        <div id="video-list"><div class="empty-note">Нет данных. Загрузите видео и нажмите «Обработать».</div></div>
+        <div id="video-timeline-wrap" style="display:none">
+          <h3 style="margin-top:18px;">Активность по времени</h3>
+          <div class="timeline" id="video-timeline"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn secondary" id="video-advice-btn" disabled>🤖 AI-рекомендация</button>
+        </div>
+        <div class="advice-box" id="video-advice" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CAMERA TAB ================= -->
+  <div class="tab-panel" id="tab-camera">
+    <div class="grid">
+      <div class="panel">
+        <h3>Веб-камера — прямой анализ</h3>
+        <div class="viewport" id="camera-viewport">
+          <video id="camera-video" autoplay playsinline muted style="display:none"></video>
+          <canvas id="camera-canvas"></canvas>
+          <div class="viewport-empty" id="camera-empty"><span class="big">◉</span>Нажмите «Запустить камеру», чтобы<br>начать анализ в реальном времени</div>
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        </div>
+        <div class="field">
+          <div class="slider-row"><span>Порог уверенности</span><span class="slider-val" id="camera-conf-val">0.35</span></div>
+          <input type="range" id="camera-conf" min="0.1" max="0.9" step="0.05" value="0.35">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="camera-start">Запустить камеру</button>
+          <button class="btn secondary" id="camera-stop" disabled>Остановить</button>
+        </div>
+        <div class="hint">Кадры анализируются каждые ~500 мс прямо в браузере и отправляются модели на сервере.</div>
+      </div>
+      <div class="panel">
+        <h3>Обнаружено сейчас</h3>
+        <div class="stat-row">
+          <div class="stat"><div class="n" id="camera-total">0</div><div class="l">Объектов</div></div>
+          <div class="stat"><div class="n" id="camera-fps">0</div><div class="l">Анализ/сек</div></div>
+        </div>
+        <div class="det-list" id="camera-list"><div class="empty-note">Камера не запущена.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DRONE TAB ================= -->
+  <div class="tab-panel" id="tab-drone">
+    <div class="grid">
+      <div class="panel">
+        <h3>Поток с дрона / IP-камеры</h3>
+        <div class="viewport" id="drone-viewport">
+          <img id="drone-img" style="display:none">
+          <div class="viewport-empty" id="drone-empty"><span class="big">✈</span>Укажите адрес видеопотока дрона<br>(RTSP / HTTP MJPEG) и нажмите «Подключить»</div>
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        </div>
+        <div class="field">
+          <label>Адрес потока (RTSP / HTTP / MJPEG)</label>
+          <input type="text" id="drone-url" placeholder="rtsp://192.168.1.10:554/live  или  http://192.168.1.10:8080/video">
+        </div>
+        <div class="field">
+          <div class="slider-row"><span>Порог уверенности</span><span class="slider-val" id="drone-conf-val">0.35</span></div>
+          <input type="range" id="drone-conf" min="0.1" max="0.9" step="0.05" value="0.35">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="drone-connect">Подключить</button>
+          <button class="btn secondary" id="drone-disconnect" disabled>Отключить</button>
+        </div>
+        <div class="hint">Подходит для дронов и IP-камер, отдающих RTSP/HTTP-поток (например, приложение «IP Webcam» на телефоне вместо дрона для теста).<br><br>
+        <b>Работаете в OBS?</b> В OBS нажмите «Start Virtual Camera» (Инструменты → включить виртуальную камеру), затем впишите сюда просто номер камеры: «0», «1» или «2» — и нажмите «Подключить». Обычно, если это единственная камера в системе, подойдёт «0»; если сервер видит несколько камер, виртуальная камера OBS часто оказывается под следующим номером — попробуйте по очереди.</div>
+      </div>
+      <div class="panel">
+        <h3>О режиме дрона</h3>
+        <p style="font-size:13px;color:var(--dim);line-height:1.6;">
+          Сервер сам подключается к видеопотоку, прогоняет каждый кадр через модель и накладывает рамки обнаружений —
+          в браузере вы видите уже готовое аннотированное видео в реальном времени.
+        </p>
+        <p style="font-size:13px;color:var(--dim);line-height:1.6;">
+          Если у дрона нет прямого видеовыхода, используйте телефон с приложением IP-камеры, закреплённый на дроне
+          или на шесте — модель одинаково хорошо анализирует любой воздушный или наземный обзор поля.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:22px;">
+    <h3>Легенда классов</h3>
+    <div class="legend" id="legend"></div>
+  </div>
+
+</div>
+
+<footer>AgroAI Scout · локальная модель YOLO11, инференс через ONNX Runtime · данные не отправляются никуда за пределы вашего сервера</footer>
+
+<script>
+const API = '';
+let CLASSES = [];
+
+// ---------- tabs ----------
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab !== 'camera') stopCamera();
+    if(btn.dataset.tab !== 'drone') disconnectDrone();
+  });
+});
+
+// ---------- Groq API key ----------
+// Ключ теперь задаётся прямо в server.py (GROQ_API_KEY_DEFAULT) — из браузера ничего передавать не нужно.
+function getGroqKey(){ return ''; }
+
+async function requestAdvice(btn, boxId, summary, context){
+  const key = getGroqKey(); // сервер использует свой GROQ_API_KEY_DEFAULT
+  const box = document.getElementById(boxId);
+  box.style.display=''; box.classList.add('loading');
+  box.innerHTML = '<div class="advice-label">🤖 AI-рекомендация</div>Запрашиваю у Groq…';
+  btn.disabled = true;
+  try{
+    const r = await fetch(API+'/api/advice', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({api_key:key, summary, context})
+    });
+    const j = await r.json();
+    box.classList.remove('loading');
+    box.innerHTML = j.error
+      ? `<div class="advice-label">⚠ Ошибка</div>${j.error}`
+      : `<div class="advice-label">🤖 AI-рекомендация</div>${j.advice}`;
+  } catch(err){
+    box.classList.remove('loading');
+    box.innerHTML = `<div class="advice-label">⚠ Ошибка</div>Не удалось связаться с сервером: ${err}`;
+  }
+  btn.disabled = false;
+}
+
+// ---------- legend ----------
+async function loadClasses(){
+  const r = await fetch(API+'/api/classes');
+  const j = await r.json();
+  CLASSES = j.classes;
+  const legend = document.getElementById('legend');
+  legend.innerHTML = CLASSES.map(c=>`<div class="chip"><span class="swatch" style="background:${c.color}"></span>${c.name}</div>`).join('');
+}
+loadClasses();
+
+function fieldBanner(el, detections){
+  const fieldDet = detections.filter(d=>d.is_field);
+  const pestCount = detections.filter(d=>!d.is_field).length;
+  el.innerHTML = '';
+  const div = document.createElement('div');
+  if(fieldDet.some(d=>d.class_name==='Healthy field') && pestCount===0){
+    div.className='status-banner healthy';
+    div.innerHTML = `<div class="icon">✔</div><div><div class="title">Поле в хорошем состоянии</div><div class="sub">Вредители и повреждения не обнаружены</div></div>`;
+  } else if(pestCount>0 || fieldDet.some(d=>d.class_name==='Damaged field'||d.class_name==='Stressed field')){
+    div.className='status-banner alert';
+    div.innerHTML = `<div class="icon">⚠</div><div><div class="title">Обнаружены проблемы</div><div class="sub">${pestCount} вредителей · ${fieldDet.map(d=>d.class_name).join(', ')||'—'}</div></div>`;
+  } else {
+    div.className='status-banner neutral';
+    div.innerHTML = `<div class="icon">◎</div><div><div class="title">Анализ завершён</div><div class="sub">${detections.length} объектов распознано</div></div>`;
+  }
+  el.appendChild(div);
+}
+
+function renderDetList(el, detections){
+  if(detections.length===0){ el.innerHTML = '<div class="empty-note">Ничего не обнаружено при текущем пороге уверенности.</div>'; return; }
+  el.innerHTML = detections.map(d=>`
+    <div class="det-item">
+      <span class="swatch" style="background:${d.color}"></span>
+      <span class="name">${d.class_name}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(d.confidence*100)}%;background:${d.color}"></div></div>
+      <span class="conf">${Math.round(d.confidence*100)}%</span>
+    </div>
+  `).join('');
+}
+
+// ================= PHOTO =================
+let photoFile = null;
+const photoDrop = document.getElementById('photo-drop');
+const photoInput = document.getElementById('photo-input');
+const photoViewport = document.getElementById('photo-viewport');
+const photoEmpty = document.getElementById('photo-empty');
+const photoAnalyzeBtn = document.getElementById('photo-analyze');
+const photoConf = document.getElementById('photo-conf');
+document.getElementById('photo-conf-val').textContent = photoConf.value;
+photoConf.addEventListener('input', ()=> document.getElementById('photo-conf-val').textContent = photoConf.value);
+
+photoDrop.addEventListener('click', ()=>photoInput.click());
+photoDrop.addEventListener('dragover', e=>{e.preventDefault(); photoDrop.classList.add('drag');});
+photoDrop.addEventListener('dragleave', ()=>photoDrop.classList.remove('drag'));
+photoDrop.addEventListener('drop', e=>{
+  e.preventDefault(); photoDrop.classList.remove('drag');
+  if(e.dataTransfer.files.length) handlePhotoFile(e.dataTransfer.files[0]);
+});
+photoInput.addEventListener('change', e=>{ if(e.target.files.length) handlePhotoFile(e.target.files[0]); });
+
+function handlePhotoFile(file){
+  photoFile = file;
+  const url = URL.createObjectURL(file);
+  photoEmpty.style.display='none';
+  let img = photoViewport.querySelector('img');
+  if(!img){ img = document.createElement('img'); photoViewport.insertBefore(img, photoViewport.firstChild); }
+  img.src = url;
+  photoAnalyzeBtn.disabled = false;
+}
+
+document.getElementById('photo-reset').addEventListener('click', ()=>{
+  photoFile=null; photoAnalyzeBtn.disabled=true;
+  const img = photoViewport.querySelector('img'); if(img) img.remove();
+  photoEmpty.style.display='';
+  document.getElementById('photo-list').innerHTML = '<div class="empty-note">Нет данных. Загрузите фото и нажмите «Анализировать».</div>';
+  document.getElementById('photo-banner').innerHTML='';
+  document.getElementById('photo-total').textContent='0';
+  document.getElementById('photo-pests').textContent='0';
+  document.getElementById('photo-ms').textContent='–';
+  lastPhotoSummary = null;
+  document.getElementById('photo-advice-btn').disabled = true;
+  document.getElementById('photo-advice').style.display = 'none';
+});
+
+photoAnalyzeBtn.addEventListener('click', async ()=>{
+  if(!photoFile) return;
+  photoViewport.classList.add('scanning');
+  document.getElementById('photo-spinner').style.display='';
+  photoAnalyzeBtn.disabled = true;
+  const fd = new FormData();
+  fd.append('file', photoFile);
+  try{
+    const r = await fetch(API+`/api/detect/image?conf=${photoConf.value}`, {method:'POST', body:fd});
+    const j = await r.json();
+    photoViewport.querySelector('img').src = 'data:image/jpeg;base64,'+j.image_b64;
+    renderDetList(document.getElementById('photo-list'), j.detections);
+    fieldBanner(document.getElementById('photo-banner'), j.detections);
+    document.getElementById('photo-total').textContent = j.summary.total;
+    document.getElementById('photo-pests').textContent = j.summary.pest_count;
+    document.getElementById('photo-ms').textContent = j.infer_ms;
+    lastPhotoSummary = j.summary;
+    document.getElementById('photo-advice-btn').disabled = false;
+  } catch(err){ alert('Ошибка анализа: '+err); }
+  photoViewport.classList.remove('scanning');
+  document.getElementById('photo-spinner').style.display='none';
+  photoAnalyzeBtn.disabled = false;
+});
+
+let lastPhotoSummary = null;
+document.getElementById('photo-advice-btn').addEventListener('click', ()=>{
+  requestAdvice(document.getElementById('photo-advice-btn'), 'photo-advice', lastPhotoSummary, 'фото поля');
+});
+
+// ================= VIDEO =================
+let videoFile = null;
+const videoDrop = document.getElementById('video-drop');
+const videoInput = document.getElementById('video-input');
+const videoViewport = document.getElementById('video-viewport');
+const videoEmpty = document.getElementById('video-empty');
+const videoAnalyzeBtn = document.getElementById('video-analyze');
+const videoConf = document.getElementById('video-conf');
+document.getElementById('video-conf-val').textContent = videoConf.value;
+videoConf.addEventListener('input', ()=> document.getElementById('video-conf-val').textContent = videoConf.value);
+
+videoDrop.addEventListener('click', ()=>videoInput.click());
+videoDrop.addEventListener('dragover', e=>{e.preventDefault(); videoDrop.classList.add('drag');});
+videoDrop.addEventListener('dragleave', ()=>videoDrop.classList.remove('drag'));
+videoDrop.addEventListener('drop', e=>{
+  e.preventDefault(); videoDrop.classList.remove('drag');
+  if(e.dataTransfer.files.length) handleVideoFile(e.dataTransfer.files[0]);
+});
+videoInput.addEventListener('change', e=>{ if(e.target.files.length) handleVideoFile(e.target.files[0]); });
+
+function handleVideoFile(file){
+  videoFile = file;
+  const url = URL.createObjectURL(file);
+  videoEmpty.style.display='none';
+  let vid = videoViewport.querySelector('video');
+  if(!vid){ vid = document.createElement('video'); vid.controls=true; vid.muted=true; videoViewport.insertBefore(vid, videoViewport.firstChild); }
+  vid.src = url;
+  videoAnalyzeBtn.disabled = false;
+}
+
+document.getElementById('video-reset').addEventListener('click', ()=>{
+  videoFile=null; videoAnalyzeBtn.disabled=true;
+  const vid = videoViewport.querySelector('video'); if(vid) vid.remove();
+  videoEmpty.style.display='';
+  document.getElementById('video-list').innerHTML = '<div class="empty-note">Нет данных. Загрузите видео и нажмите «Обработать».</div>';
+  document.getElementById('video-timeline-wrap').style.display='none';
+  document.getElementById('video-frames').textContent='0';
+  document.getElementById('video-dur').textContent='0';
+  document.getElementById('video-species').textContent='0';
+  lastVideoSummary = null;
+  document.getElementById('video-advice-btn').disabled = true;
+  document.getElementById('video-advice').style.display = 'none';
+});
+
+videoAnalyzeBtn.addEventListener('click', async ()=>{
+  if(!videoFile) return;
+  videoViewport.classList.add('scanning');
+  document.getElementById('video-spinner').style.display='';
+  videoAnalyzeBtn.disabled = true;
+  const fd = new FormData();
+  fd.append('file', videoFile);
+  try{
+    const r = await fetch(API+`/api/detect/video?conf=${videoConf.value}`, {method:'POST', body:fd});
+    const j = await r.json();
+    if(j.error){ alert(j.error); }
+    else {
+      let vid = videoViewport.querySelector('video');
+      vid.src = API + j.video_url;
+      document.getElementById('video-frames').textContent = j.frames_processed;
+      document.getElementById('video-dur').textContent = j.duration_sec;
+      document.getElementById('video-species').textContent = Object.keys(j.class_counts).length;
+      const entries = Object.entries(j.class_counts).sort((a,b)=>b[1]-a[1]);
+      const listEl = document.getElementById('video-list');
+      if(entries.length===0){ listEl.innerHTML = '<div class="empty-note">За всё видео ничего не обнаружено.</div>'; }
+      else {
+        listEl.innerHTML = entries.map(([name,count])=>{
+          const cls = CLASSES.find(c=>c.name===name);
+          const color = cls? cls.color : '#e8b93f';
+          return `<div class="det-item"><span class="swatch" style="background:${color}"></span><span class="name">${name}</span><span class="conf">${count}×</span></div>`;
+        }).join('');
+      }
+      const maxCount = Math.max(1, ...j.timeline.map(t=>t.count));
+      document.getElementById('video-timeline').innerHTML = j.timeline.map(t=>`<div class="bar" style="height:${Math.max(3, t.count/maxCount*100)}%" title="${t.t}s: ${t.count}"></div>`).join('');
+      document.getElementById('video-timeline-wrap').style.display='';
+      lastVideoSummary = {class_counts: j.class_counts};
+      document.getElementById('video-advice-btn').disabled = false;
+    }
+  } catch(err){ alert('Ошибка обработки: '+err); }
+  videoViewport.classList.remove('scanning');
+  document.getElementById('video-spinner').style.display='none';
+  videoAnalyzeBtn.disabled = false;
+});
+
+let lastVideoSummary = null;
+document.getElementById('video-advice-btn').addEventListener('click', ()=>{
+  requestAdvice(document.getElementById('video-advice-btn'), 'video-advice', lastVideoSummary, 'видеозапись обхода поля');
+});
+
+// ================= CAMERA =================
+let cameraStream=null, cameraInterval=null, cameraAnalyzing=false, cameraCount=0, cameraLastSecond=Math.floor(Date.now()/1000);
+const camVideo = document.getElementById('camera-video');
+const camCanvas = document.getElementById('camera-canvas');
+const camEmpty = document.getElementById('camera-empty');
+const camConf = document.getElementById('camera-conf');
+document.getElementById('camera-conf-val').textContent = camConf.value;
+camConf.addEventListener('input', ()=> document.getElementById('camera-conf-val').textContent = camConf.value);
+
+document.getElementById('camera-start').addEventListener('click', startCamera);
+document.getElementById('camera-stop').addEventListener('click', stopCamera);
+
+async function startCamera(){
+  try{
+    cameraStream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480}});
+  } catch(err){ alert('Нет доступа к камере: '+err); return; }
+  camVideo.srcObject = cameraStream;
+  camVideo.style.display='none';
+  camEmpty.style.display='none';
+  document.getElementById('camera-start').disabled = true;
+  document.getElementById('camera-stop').disabled = false;
+  const ctx = camCanvas.getContext('2d');
+  const hidden = document.createElement('canvas');
+
+  cameraInterval = setInterval(async ()=>{
+    if(cameraAnalyzing || camVideo.videoWidth===0) return;
+    cameraAnalyzing = true;
+    camCanvas.width = camVideo.videoWidth; camCanvas.height = camVideo.videoHeight;
+    hidden.width = camVideo.videoWidth; hidden.height = camVideo.videoHeight;
+    hidden.getContext('2d').drawImage(camVideo, 0, 0);
+    ctx.drawImage(camVideo, 0, 0, camCanvas.width, camCanvas.height);
+    const dataUrl = hidden.toDataURL('image/jpeg', 0.6);
+    try{
+      const r = await fetch(API+'/api/detect/frame', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({image: dataUrl, conf: camConf.value})
+      });
+      const j = await r.json();
+      drawBoxes(ctx, j.detections, camCanvas.width, camCanvas.height);
+      renderDetList(document.getElementById('camera-list'), j.detections);
+      document.getElementById('camera-total').textContent = j.detections.length;
+      cameraCount++;
+      const sec = Math.floor(Date.now()/1000);
+      if(sec !== cameraLastSecond){ document.getElementById('camera-fps').textContent = cameraCount; cameraCount=0; cameraLastSecond=sec; }
+    } catch(err){ /* ignore transient errors */ }
+    cameraAnalyzing = false;
+  }, 500);
+}
+
+function stopCamera(){
+  if(cameraInterval){ clearInterval(cameraInterval); cameraInterval=null; }
+  if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream=null; }
+  document.getElementById('camera-start').disabled = false;
+  document.getElementById('camera-stop').disabled = true;
+  camEmpty.style.display='';
+  const ctx = camCanvas.getContext('2d'); ctx.clearRect(0,0,camCanvas.width,camCanvas.height);
+  document.getElementById('camera-list').innerHTML = '<div class="empty-note">Камера не запущена.</div>';
+  document.getElementById('camera-total').textContent='0';
+}
+
+function drawBoxes(ctx, detections, w, h){
+  ctx.clearRect(0,0,w,h);
+  detections.forEach(d=>{
+    const [x1,y1,x2,y2] = d.box;
+    ctx.strokeStyle = d.color; ctx.lineWidth = 2;
+    ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+    const label = `${d.class_name} ${Math.round(d.confidence*100)}%`;
+    ctx.font = '13px IBM Plex Mono, monospace';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = d.color;
+    ctx.fillRect(x1, Math.max(0,y1-18), tw+8, 18);
+    ctx.fillStyle = '#111';
+    ctx.fillText(label, x1+4, Math.max(13,y1-4));
+  });
+}
+
+// ================= DRONE =================
+const droneImg = document.getElementById('drone-img');
+const droneEmpty = document.getElementById('drone-empty');
+const droneConf = document.getElementById('drone-conf');
+document.getElementById('drone-conf-val').textContent = droneConf.value;
+droneConf.addEventListener('input', ()=> document.getElementById('drone-conf-val').textContent = droneConf.value);
+
+document.getElementById('drone-connect').addEventListener('click', ()=>{
+  const url = document.getElementById('drone-url').value.trim();
+  if(!url){ alert('Введите адрес потока'); return; }
+  const streamUrl = API+`/api/stream?url=${encodeURIComponent(url)}&conf=${droneConf.value}&_=${Date.now()}`;
+  droneImg.src = streamUrl;
+  droneImg.style.display='';
+  droneEmpty.style.display='none';
+  document.getElementById('drone-connect').disabled = true;
+  document.getElementById('drone-disconnect').disabled = false;
+});
+
+document.getElementById('drone-disconnect').addEventListener('click', disconnectDrone);
+function disconnectDrone(){
+  droneImg.src='';
+  droneImg.style.display='none';
+  droneEmpty.style.display='';
+  document.getElementById('drone-connect').disabled = false;
+  document.getElementById('drone-disconnect').disabled = true;
+}
+</script>
+</body>
+</html>
