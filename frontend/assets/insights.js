@@ -79,14 +79,14 @@
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) local.abort();
     update();
-    status('Получаем кадр и показания ESP32…');
+    status('Подготавливаем данные участка…');
     try {
       const frame = await capture(local.signal);
       // The backend selects the latest ESP32 and uses optional context defaults.
       const payload = { ...frame, source: mode, session_id: session, request_id: crypto.randomUUID() };
       const job = await api('/advice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload), signal: local.signal });
-      status('Gemini сопоставляет изображение и датчики… Видео продолжает работать.');
+      status('Готовим агрономическое заключение…');
       const deadline = Date.now() + 90000;
       while (true) {
         await delay(1500, local.signal);
@@ -125,9 +125,9 @@
     $('ai-frame-link').href = apiUrl(data.image_path);
     const s = data.sensors;
     const label = { live: 'свежие показания', stale: 'показания устарели', empty: 'датчики не подключены' }[s.status];
-    $('ai-meta').textContent = `${stamp(data.captured_at)} · ${data.source === 'camera' ? 'Кадр камеры' : 'Кадр файла'} · ${s.device_id || 'ESP32'}: ${label}`;
+    const source = { camera: 'Камера', photo: 'Фото', video: 'Видеозапись' }[data.source] || 'Снимок';
+    $('ai-meta').textContent = `${stamp(data.captured_at)} · ${source} · ${label}`;
     const content = $('ai-details'); content.replaceChildren();
-    list('Что видно', data.assessment.observations, content);
     const risks = node('section', '', 'ai-section');
     risks.append(node('h3', 'Условные риски · 24–48 часов'));
     if (!data.assessment.risks.length) risks.append(node('p', 'Недостаточно оснований для прогноза рисков поля.'));
@@ -138,7 +138,7 @@
       risks.append(card);
     });
     content.append(risks);
-    list('Что сделать', data.assessment.actions.map(a =>
+    list('Рекомендации', data.assessment.actions.map(a =>
       ({ now: 'Сейчас', today: 'Сегодня', check: 'Перепроверить' }[a.priority]) + ': ' + a.what + ' ' + a.why), content);
     const measures = [];
     Object.entries(unitNames).forEach(([key, [name, unit]]) => {

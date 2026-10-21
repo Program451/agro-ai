@@ -68,7 +68,7 @@ $data = getLatestData($file);
   <script src="assets/camera.js?v=1" defer></script>
   <script src="assets/app.js?v=11" defer></script>
   <script src="assets/watch.js?v=1" defer></script>
-  <script src="assets/insights.js?v=5" defer></script>
+  <script src="assets/insights.js?v=7" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Перейти к анализу</a>
