@@ -19,7 +19,6 @@ bool readYourSensors(AgroReadings& reading) {
   // reading.pressure_hpa = pressureInPascals / 100.0f; // if sensor returns Pa
   // reading.altitude_m = altitude;
   // reading.rain_raw = rainAdc;
-  // reading.soil_raw = soilAdc;
   // return true;
   return false; // No fake measurements are transmitted.
 }

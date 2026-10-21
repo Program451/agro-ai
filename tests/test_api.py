@@ -157,12 +157,14 @@ def test_esp32_readings_are_persisted_and_sensor_key_is_scoped(client, monkeypat
     assert client.get("/api/health", headers=sensor_headers).status_code == 401
     assert client.post("/api/detect/frame", headers=sensor_headers, json={"image": "bad"}).status_code == 401
     reading = client.get("/api/sensors").json()
-    assert reading["status"] == "live" and reading["reading"] == payload
-    assert reading["reading"]["soil_raw"] == 0  # Zero is a valid reading, not missing.
-    assert sensors.latest_reading()["reading"] == payload  # Fresh DB connection, persisted data.
+    expected = {key: value for key, value in payload.items() if key != "soil_raw"}
+    assert reading["status"] == "live" and reading["reading"] == expected
+    assert "soil_raw" not in reading["reading"]
+    assert sensors.latest_reading()["reading"] == expected  # Fresh DB connection, persisted data.
     assert client.post("/api/sensors", json={"humidity_pct": 120}).status_code == 422
     assert client.post("/api/sensors", json={"device_id": "esp32"}).status_code == 422
     assert client.post("/api/sensors", json={"rain_raw": 1.5}).status_code == 422
+    assert client.post("/api/sensors", json={"soil_raw": 0}).status_code == 422
     from datetime import datetime, timezone, timedelta
     old = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
     with sensors.connect() as db:

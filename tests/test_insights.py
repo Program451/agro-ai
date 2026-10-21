@@ -46,7 +46,7 @@ def test_sensor_context_never_uses_future_or_other_device():
     add(at + timedelta(seconds=2), temperature_c=80)
     data = sensors.context_at(at, "field")
     assert data["status"] == "live" and data["age_seconds"] == 10
-    assert data["reading"]["soil_raw"] == 0
+    assert "soil_raw" not in data["reading"]
     assert data["trends"]["temperature_c"]["delta"] == 2
     assert data["sample_count"] == 2
     assert all(s["device_id"] == "field" for s in data["samples"])
@@ -75,11 +75,21 @@ def test_image_and_sensor_evidence_persist_together(monkeypatch):
     report = insights.analyze(p, detector)
     jpeg, evidence = mock.call_args.args
     assert jpeg.startswith(b"\xff\xd8")
-    assert evidence["sensors"]["reading"]["soil_raw"] == 0
+    assert "soil_raw" not in json.dumps(evidence["sensors"])
     assert evidence["sensor_alignment"] == "live_capture"
     assert evidence["yolo_hypotheses"] == [{"name": "Растение", "confidence": .7}]
     assert insights.history(p.session_id) == [report]
     assert insights.snapshot(p.request_id) == jpeg
+    # Old saved reports must also omit soil readings in history and cached retries.
+    legacy = json.loads(json.dumps(report))
+    legacy["sensors"]["reading"]["soil_raw"] = 0
+    legacy["sensors"]["units"]["soil_raw"] = "ADC"
+    legacy["sensors"]["trends"]["soil_raw"] = {"delta": 0}
+    legacy["sensors"]["samples"][0]["soil_raw"] = 0
+    with insights.connect() as db:
+        db.execute("UPDATE observations SET result=? WHERE id=?",
+                   (json.dumps(legacy), str(p.request_id)))
+    assert insights.history(p.session_id) == [report]
     # An identical retry returns the persisted report without paying for a second call.
     assert insights.analyze(p, detector) == report
     assert mock.call_count == 1
@@ -105,7 +115,7 @@ def test_missing_sensors_and_recording_are_not_claimed_synchronous(monkeypatch):
 def test_provider_uses_image_structured_output_and_header_only(monkeypatch):
     answer = assessment()
     answer["image_relevance"] = "non_field"
-    answer["risks"] = [{"title": "Ошибка модели", "level": "high", "evidence": "x", "forecast": "x"}]
+    answer["risks"] = [{"title": "Ошибка модели", "level": "high", "basis": "image", "evidence": "x", "forecast": "x"}]
     response = Mock(status_code=200, ok=True)
     response.json.return_value = {"candidates": [{"finishReason": "STOP",
         "content": {"parts": [{"text": json.dumps(answer)}]}}]}
@@ -119,6 +129,26 @@ def test_provider_uses_image_structured_output_and_header_only(monkeypatch):
     assert options["json"]["contents"][0]["parts"][1]["inlineData"]["mimeType"] == "image/jpeg"
     assert options["json"]["generationConfig"]["responseMimeType"] == "application/json"
     assert result["risks"] == []  # Non-field scenes cannot get a field forecast.
+
+
+@pytest.mark.parametrize("sensor_status,expected", [
+    ("live", ["image", "sensors", "combined"]),
+    ("stale", ["image"]), ("empty", ["image"]),
+])
+def test_current_sensor_forecasts_require_live_readings(monkeypatch, sensor_status, expected):
+    answer = assessment()
+    answer["image_relevance"] = "plant"
+    answer["risks"] = [
+        {"title": "Условный риск", "level": "medium", "basis": basis,
+         "evidence": "Проверочное основание", "forecast": "Если условия сохранятся…"}
+        for basis in ("image", "sensors", "combined")
+    ]
+    response = Mock(status_code=200, ok=True)
+    response.json.return_value = {"candidates": [{"finishReason": "STOP",
+        "content": {"parts": [{"text": json.dumps(answer)}]}}]}
+    monkeypatch.setattr(insights.requests, "post", Mock(return_value=response))
+    result, _ = insights.request_gemini(b"jpeg", {"sensors": {"status": sensor_status}})
+    assert [risk["basis"] for risk in result["risks"]] == expected
 
 
 @pytest.mark.parametrize("code,expected", [(401, 503), (403, 503), (404, 503), (429, 429), (500, 502)])

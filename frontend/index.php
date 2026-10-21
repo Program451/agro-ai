@@ -38,7 +38,7 @@ function getLatestData($file) {
         'time' => (new DateTimeImmutable($snapshot['received_at']))->setTimezone(new DateTimeZone('Asia/Almaty'))->format('Y-m-d H:i:s'),
         'temperature' => $reading['temperature_c'], 'humidity' => $reading['humidity_pct'],
         'pressure' => $reading['pressure_hpa'], 'altitude' => $reading['altitude_m'],
-        'rain' => $reading['rain_raw'], 'soil' => $reading['soil_raw'],
+        'rain' => $reading['rain_raw'],
     ];
 }
 
@@ -68,7 +68,7 @@ $data = getLatestData($file);
   <script src="assets/camera.js?v=1" defer></script>
   <script src="assets/app.js?v=11" defer></script>
   <script src="assets/watch.js?v=1" defer></script>
-  <script src="assets/insights.js?v=7" defer></script>
+  <script src="assets/insights.js?v=8" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Перейти к анализу</a>
@@ -170,7 +170,6 @@ $sensorValues = [
     'pressure_hpa'  => $data['pressure'] ?? '--',
     'altitude_m'    => $data['altitude'] ?? '--',
     'rain_raw'      => $data['rain'] ?? '--',
-    'soil_raw'      => $data['soil'] ?? '--',
 ];
 ?>
 <?php foreach ([

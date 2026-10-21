@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Existing ESP32 CSV: time,temp,hum,pressure,altitude,rain,soil.
+// CSV: time,temp,hum,pressure,altitude,rain; ignore the legacy soil placeholder.
 // The writer stores Almaty time and pressure in hPa already.
 function agro_sensor_snapshot(string $file, ?int $now = null): ?array {
     if (!is_file($file)) return null;
@@ -24,13 +24,13 @@ function agro_sensor_snapshot(string $file, ?int $now = null): ?array {
         $fields = [
             'temperature_c' => [-100, 150], 'humidity_pct' => [0, 100],
             'pressure_hpa' => [100, 1500], 'altitude_m' => [-1000, 20000],
-            'rain_raw' => [0, 65535], 'soil_raw' => [0, 65535],
+            'rain_raw' => [0, 65535],
         ];
         while (($line = fgets($handle, 4096)) !== false) {
             // fputcsv terminates every complete packet with a newline.
             if (!str_ends_with($line, "\n")) continue;
             $row = str_getcsv(trim($line), ',', '"', '');
-            if (count($row) !== 7) continue;
+            if (!in_array(count($row), [6, 7], true)) continue;
             $stamp = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $row[0], $zone);
             if (!$stamp || $stamp->format('Y-m-d H:i:s') !== $row[0] || $stamp->getTimestamp() > $now) continue;
             $reading = ['device_id' => 'esp32-hosting'];

@@ -12,7 +12,6 @@ struct AgroReadings {
   float pressure_hpa = NAN;
   float altitude_m = NAN;
   int rain_raw = -1;
-  int soil_raw = -1;
 };
 
 inline bool agroPostReadings(
@@ -33,7 +32,6 @@ inline bool agroPostReadings(
   addFloat("pressure_hpa", values.pressure_hpa);
   addFloat("altitude_m", values.altitude_m);
   if (values.rain_raw >= 0) { payload += ",\"rain_raw\":" + String(values.rain_raw); fields++; }
-  if (values.soil_raw >= 0) { payload += ",\"soil_raw\":" + String(values.soil_raw); fields++; }
   if (!fields) return false;
   payload += "}";
   HTTPClient http;

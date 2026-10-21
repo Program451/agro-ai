@@ -4,7 +4,7 @@
   const unitNames = {
     temperature_c: ['Температура', '°C'], humidity_pct: ['Влажность воздуха', '%'],
     pressure_hpa: ['Давление', 'гПа'], altitude_m: ['Высота', 'м'],
-    rain_raw: ['Дождь', 'ADC'], soil_raw: ['Почва', 'ADC'],
+    rain_raw: ['Дождь', 'ADC'],
   };
   const stamp = value => new Date(value).toLocaleString('ru-RU');
   const node = (tag, text, css = '') => {
@@ -133,8 +133,9 @@
     if (!data.assessment.risks.length) risks.append(node('p', 'Недостаточно оснований для прогноза рисков поля.'));
     data.assessment.risks.forEach(risk => {
       const card = node('article', '', 'ai-risk');
+      const basis = { image: 'По снимку', sensors: 'По актуальным показаниям', combined: 'По снимку и актуальным показаниям' }[risk.basis];
       card.append(node('span', { low: 'Низкий', medium: 'Умеренный', high: 'Высокий', unknown: 'Не определён' }[risk.level], 'ai-level ' + risk.level),
-        node('strong', risk.title), node('p', risk.evidence), node('p', risk.forecast));
+        node('strong', risk.title), node('p', basis ? basis + ': ' + risk.evidence : risk.evidence), node('p', risk.forecast));
       risks.append(card);
     });
     content.append(risks);

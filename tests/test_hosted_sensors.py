@@ -30,7 +30,7 @@ def test_old_packets_stay_old_and_polling_does_not_duplicate():
     data = sensors.latest_reading()
     assert data['status'] == 'stale' and data['age_seconds'] > 86400
     assert data['reading']['pressure_hpa'] == 951.39
-    assert data['reading']['soil_raw'] == 0
+    assert 'soil_raw' not in data['reading']
     # A late download of older rows must not replace the newest measurement.
     sensors.import_hosted_samples([packet(stamp - timedelta(days=1), 50)])
     assert sensors.latest_reading() == data
@@ -44,7 +44,7 @@ def test_hosting_context_uses_original_timezone_and_no_future_packets():
                packet(now + timedelta(minutes=10), 80)]
     assert sensors.import_hosted_samples(samples) == 2
     context = sensors.context_at(now)
-    assert context['reading']['soil_raw'] == 0
+    assert 'soil_raw' not in context['reading']
     assert context['status'] == 'live' and context['sample_count'] == 2
     assert context['trends']['temperature_c']['delta'] == 2
     assert sensors.context_at(earlier)['reading']['temperature_c'] == 18
@@ -72,7 +72,7 @@ def test_feed_sync_is_bounded_cached_and_does_not_send_tokens(monkeypatch):
     manager.__exit__ = Mock(return_value=False)
     get = Mock(return_value=manager)
     monkeypatch.setattr(sensors.requests, 'get', get)
-    assert sensors.latest_reading()['reading']['soil_raw'] == 0
+    assert 'soil_raw' not in sensors.latest_reading()['reading']
     sensors.context_at(datetime.now(timezone.utc))
     assert get.call_count == 1
     assert 'headers' not in get.call_args.kwargs
@@ -80,3 +80,24 @@ def test_feed_sync_is_bounded_cached_and_does_not_send_tokens(monkeypatch):
     monkeypatch.setattr(sensors, 'feed_checked_at', float('-inf'))
     get.side_effect = requests.Timeout()
     assert sensors.latest_reading()['reading']['pressure_hpa'] == 951.39
+
+
+def test_legacy_rows_do_not_expose_soil_or_duplicate_on_import():
+    now = datetime.now(timezone.utc)
+    packets = [packet(now - timedelta(minutes=3), 18), packet(now - timedelta(seconds=5), 20)]
+    packets[0]['reading']['soil_raw'] = 3500
+    packets[1]['reading']['rain_raw'] = 0
+    # Simulate the database written before the uninstalled sensor was removed.
+    with sensors.connect() as db:
+        for sample in packets:
+            db.execute('INSERT INTO readings(received_at,payload) VALUES (?,?)',
+                       (sample['received_at'], json.dumps(sample['reading'])))
+    assert sensors.import_hosted_samples(packets) == 0
+    latest = sensors.latest_reading()['reading']
+    assert 'soil_raw' not in latest and latest['rain_raw'] == 0
+    context = sensors.context_at(now)
+    assert context['sample_count'] == 2
+    assert context['trends']['temperature_c']['delta'] == 2
+    assert 'soil_raw' not in context['reading']
+    assert 'soil_raw' not in context['units'] and 'soil_raw' not in context['trends']
+    assert all('soil_raw' not in sample for sample in context['samples'])

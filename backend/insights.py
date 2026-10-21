@@ -20,7 +20,7 @@ import requests
 from fastapi import HTTPException
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 
-from backend.sensors import context_at
+from backend.sensors import available_context, context_at
 
 DB_PATH = Path(os.getenv("AGRO_INSIGHTS_DB", str(Path(__file__).resolve().parent.parent / "data" / "insights.sqlite3")))
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
@@ -47,6 +47,9 @@ class InsightPayload(BaseModel):
 class Risk(BaseModel):
     title: str = Field(max_length=160)
     level: Literal["low", "medium", "high", "unknown"]
+    basis: Literal["image", "sensors", "combined"] = Field(description=(
+        "Основание риска: image — признаки на кадре; sensors — актуальные измерения; "
+        "combined — согласующиеся признаки на кадре и актуальные измерения."))
     evidence: str = Field(max_length=700)
     forecast: str = Field(max_length=700)
 
@@ -161,7 +164,9 @@ risks=[], никаких выдуманных вредителей/болезн�
 Один открытый участок грунта не подтверждает пересыхание, эрозию или образование корки.
 Если конкретная угроза не обоснована видимыми признаками или применимыми измерениями,
 risks=[]; вместо выдуманного прогноза предложи проверку в actions.
-Rain и Soil — некалиброванные ADC. Нельзя переводить их в проценты, говорить «сухо»,
+Датчика влажности почвы нет. Не приписывай ему измерения и не используй старые
+упоминания таких показаний в предыдущих отчётах как доказательство.
+Rain — некалиброванный ADC датчика дождя. Нельзя переводить его в проценты, говорить «сухо»,
 «мокро», «идёт дождь» по числу или знаку изменения. Давление не даёт прогноз погоды.
 Для фото/записи время съёмки неизвестно: датчики относятся к моменту запроса, НЕ
 считай их одновременными с записанным изображением. Для camera сопоставление только
@@ -169,6 +174,22 @@ Rain и Soil — некалиброванные ADC. Нельзя перевод
 Предыдущие отчёты — история выводов, НЕ прошлые изображения и не доказательство
 изменения видимых объектов. Меняющиеся ракурсы нельзя сравнивать как одно растение.
 Советы должны быть практичными: что осмотреть, что измерить, когда перепроверить.
+Используй снимки с дрона, кадры записи или камеры и применимые показания вместе,
+а не по отдельности: проверяй, подтверждает ли микроклимат предположение по растениям.
+Для общего плана оценивай только различимые участки, неоднородность всходов и полегание;
+вид вредителя, болезнь и состояние отдельных листьев требуют подходящего масштаба.
+При наличии оснований рассмотри разные сценарии на 24–48 часов: тепловой стресс,
+неблагоприятные условия для всходов, условия развития заболеваний, сохранение или
+усиление уже видимых повреждений. Не заполняй все категории ради количества.
+Температуру и влажность воздуха оценивай в сочетании и по доступной истории trends;
+влажность воздуха не является влажностью почвы. Один замер не подтверждает длительность
+неблагоприятного периода. Дождь без калибровки, давление и высота не дают прогноз погоды.
+У каждого риска укажи basis: image, sensors или combined. evidence должен объяснить
+конкретные признаки/применимые измерения, forecast — возможное изменение и условие,
+при котором оно может наступить. Не называй отсутствие измерений основанием риска.
+Если данных недостаточно, risks=[], а actions должен предложить конкретную проверку:
+что проверить, когда и для какого решения. Полив не назначай без проверки влажности
+почвы; профилактическую обработку не назначай без подтверждения причины повреждений.
 Не назначай дозировки пестицидов/удобрений и автоматический полив по одному кадру.
 Кратко: до 4 наблюдений, до 3 рисков, до 4 действий. Не добавляй Markdown.
 Проверь summary перед ответом: это заключение агронома, а не подпись к фотографии.
@@ -187,6 +208,13 @@ def connect():
     return db
 
 
+def read_report(raw):
+    result = json.loads(raw)
+    if isinstance(result.get("sensors"), dict):
+        result["sensors"] = available_context(result["sensors"])
+    return result
+
+
 def history(session_id=None):
     with connect() as db:
         if session_id:
@@ -194,7 +222,7 @@ def history(session_id=None):
                               (str(session_id),)).fetchall()
         else:
             rows = db.execute("SELECT result FROM observations ORDER BY created_at DESC LIMIT 50").fetchall()
-    return [json.loads(r[0]) for r in rows]
+    return [read_report(r[0]) for r in rows]
 
 
 def snapshot(observation_id):
@@ -272,6 +300,9 @@ def request_gemini(jpeg, evidence):
         raise HTTPException(502, "Gemini не вернул полный отчёт. Попробуйте другой кадр.") from None
     if result["image_relevance"] == "non_field":
         result["risks"] = []
+    elif evidence.get("sensors", {}).get("status") != "live":
+        # Missing or old telemetry cannot support a forecast about current conditions.
+        result["risks"] = [risk for risk in result["risks"] if risk["basis"] == "image"]
     return result, model
 
 
@@ -288,7 +319,7 @@ def analyze(payload, detector):
     if cached:
         if cached[0] != fingerprint:
             raise HTTPException(409, "Идентификатор наблюдения уже использован для другого кадра")
-        return json.loads(cached[1])
+        return read_report(cached[1])
     if abs((now - captured).total_seconds()) > 120:
         raise HTTPException(400, "Кадр устарел или часы устройства неверны. Получите новый кадр.")
     image, jpeg = prepare_image(payload.image)

@@ -13,7 +13,7 @@ import requests
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DB_PATH = Path(os.getenv("AGRO_SENSOR_DB", str(Path(__file__).resolve().parent.parent / "data" / "sensors.sqlite3")))
-FIELDS = ("temperature_c", "humidity_pct", "pressure_hpa", "altitude_m", "rain_raw", "soil_raw")
+FIELDS = ("temperature_c", "humidity_pct", "pressure_hpa", "altitude_m", "rain_raw")
 feed_lock = threading.Lock()
 feed_checked_at = float('-inf')
 
@@ -26,13 +26,35 @@ class SensorReading(BaseModel):
     pressure_hpa: float | None = Field(default=None, ge=100, le=1500)
     altitude_m: float | None = Field(default=None, ge=-1000, le=20000)
     rain_raw: int | None = Field(default=None, ge=0, le=65535, strict=True)
-    soil_raw: int | None = Field(default=None, ge=0, le=65535, strict=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def ignore_uninstalled_sensor(cls, values):
+        # Older ESP32 firmware still sends this placeholder; there is no soil sensor.
+        return without_soil(values) if isinstance(values, dict) else values
 
     @model_validator(mode="after")
     def require_reading(self):
         if all(getattr(self, name) is None for name in FIELDS):
             raise ValueError("Send at least one sensor reading")
         return self
+
+
+def without_soil(values):
+    return {key: value for key, value in values.items() if key != "soil_raw"}
+
+
+def available_context(context):
+    """Exclude the uninstalled sensor, including from previously saved reports."""
+    clean = dict(context)
+    if isinstance(clean.get("reading"), dict):
+        clean["reading"] = without_soil(clean["reading"])
+    for key in ("trends", "units"):
+        if isinstance(clean.get(key), dict):
+            clean[key] = without_soil(clean[key])
+    if isinstance(clean.get("samples"), list):
+        clean["samples"] = [without_soil(sample) for sample in clean["samples"]]
+    return clean
 
 
 def connect():
@@ -65,10 +87,11 @@ def import_hosted_samples(samples):
     with connect() as db:
         inserted = 0
         for stamp, raw in rows:
-            cursor = db.execute(
-                "INSERT INTO readings(received_at,payload) SELECT ?,? WHERE NOT EXISTS "
-                "(SELECT 1 FROM readings WHERE received_at=? AND payload=?)", (stamp, raw, stamp, raw))
-            inserted += cursor.rowcount
+            existing = db.execute("SELECT payload FROM readings WHERE received_at=?", (stamp,)).fetchall()
+            if any(without_soil(json.loads(row[0])) == json.loads(raw) for row in existing):
+                continue
+            db.execute("INSERT INTO readings(received_at,payload) VALUES (?,?)", (stamp, raw))
+            inserted += 1
         db.execute("DELETE FROM readings WHERE id NOT IN "
                    "(SELECT id FROM readings ORDER BY received_at DESC,id DESC LIMIT 10000)")
     return inserted
@@ -123,7 +146,7 @@ def latest_reading():
         return {"status": "empty", "reading": None, "received_at": None, "age_seconds": None}
     timestamp, payload = row
     age = max(0, int((datetime.now(timezone.utc) - datetime.fromisoformat(timestamp)).total_seconds()))
-    return {"status": "stale" if age > 120 else "live", "reading": json.loads(payload),
+    return {"status": "stale" if age > 120 else "live", "reading": without_soil(json.loads(payload)),
             "received_at": timestamp, "age_seconds": age}
 
 
@@ -142,12 +165,12 @@ def context_at(anchor, device_id=None):
             return {"status": "empty", "device_id": device_id, "reading": None,
                     "received_at": None, "age_seconds": None, "samples": [], "trends": {}}
         stamp, raw = row
-        reading = json.loads(raw)
+        reading = without_soil(json.loads(raw))
         rows = db.execute(
             "SELECT received_at,payload FROM readings WHERE received_at >= ? AND received_at <= ? "
             "AND json_extract(payload, '$.device_id') = ? ORDER BY received_at DESC,id DESC LIMIT 360",
             ((anchor - timedelta(minutes=30)).isoformat(), anchor.isoformat(), reading["device_id"])).fetchall()
-    samples = [{"received_at": t, **json.loads(p)} for t, p in reversed(rows)]
+    samples = [{"received_at": t, **without_soil(json.loads(p))} for t, p in reversed(rows)]
     trends = {}
     for field in FIELDS:
         values = [(s["received_at"], s[field]) for s in samples if s.get(field) is not None]
@@ -164,5 +187,5 @@ def context_at(anchor, device_id=None):
             "sample_count": len(samples), "trends": trends,
             "samples": [samples[round(i * (len(samples) - 1) / 11)] for i in range(12)] if len(samples) > 12 else samples,
             "units": {"temperature_c": "°C", "humidity_pct": "% воздуха", "pressure_hpa": "гПа",
-                      "altitude_m": "м", "rain_raw": "ADC, без калибровки", "soil_raw": "ADC, без калибровки"},
+                      "altitude_m": "м", "rain_raw": "ADC, без калибровки"},
             "time_basis": "Время получения ESP32 на хостинге (esp32-hosting) или ноутбуке; задержка передачи не измеряется."}
