@@ -435,14 +435,6 @@ async function updateSensors() {
     });
     $('refresh-sensors').className = 'sensor-state ' + (data.status === 'live' ? 'online' : data.status === 'stale' ? 'offline' : '');
     $('sensor-status').textContent = { empty: 'Нет данных', live: 'Данные поступают', stale: 'Данные устарели' }[data.status] || 'Нет данных';
-    const stamp = data.received_at ? new Date(data.received_at).toLocaleString('ru-RU', {
-      timeZone: 'Asia/Almaty', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit'
-    }) : '';
-    $('sensor-updated').textContent = reading ?
-      `${data.source_label || reading.device_id} · ${stamp} (UTC+5). ` +
-        (data.status === 'stale' ? 'Новых измерений нет. Проверьте питание и Wi-Fi ESP32.' : 'Проверяем обновления каждые 5 секунд.') :
-      'Ожидаем первое показание от ESP32';
   } catch {
     $('refresh-sensors').className = 'sensor-state offline';
     $('sensor-status').textContent = 'Не удалось обновить данные';
@@ -470,7 +462,6 @@ async function checkHealth() {
     adviceAvailable = health.advice_available;
     $('connection').className = 'status ' + (ready ? 'online' : 'offline');
     $('connection-label').textContent = ready ? 'Модель подключена' : 'Модель загружается';
-    $('advice-note').textContent = adviceAvailable ? 'По запросу кадр и показания отправляются в Gemini.' : 'Для рекомендаций задайте GEMINI_API_KEY в .env на ноутбуке.';
     if (!classes.length) {
       classes = (await api('/classes')).classes;
     }

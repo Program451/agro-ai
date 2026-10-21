@@ -19,15 +19,6 @@
     $('advice').disabled = !ready || !adviceAvailable || !input || busy || Boolean(active) || watch.running;
     $('ai-stop').hidden = !watch.running && !active;
     $('advice').title = mode === 'camera' ? 'Начать наблюдение: кадр и датчики каждые 30 секунд после ответа' : 'Анализ выбранного кадра и показаний датчиков';
-    if (adviceAvailable) $('advice-note').textContent = mode === 'camera' ?
-      'Запускает наблюдение через Gemini: новый кадр и показания после каждого ответа с паузой 30 секунд. Расходуется квота API.' :
-      'По нажатию кадр и показания отправляются в Gemini для одного анализа.';
-    $('ai-provider').textContent = !ready ? 'Нет связи с ноутбуком' : adviceAvailable ? 'Gemini настроен' : 'Нужен ключ Gemini';
-    $('ai-provider').className = 'sensor-state ' + (ready && adviceAvailable ? 'online' : 'offline');
-    $('ai-hint').textContent = watch.running ? 'Наблюдаем: следующий кадр через 30 секунд после ответа. Сеанс до 30 минут.' :
-      mode === 'camera' ? (live ? 'Камера подключена. Нажмите «Начать общий анализ», чтобы начать наблюдение.' :
-        'Подключите камеру / OBS, затем нажмите «Начать общий анализ».') :
-      'Для файла анализируется выбранный кадр. Время съёмки неизвестно; датчики показывают текущую обстановку.';
   }
   function cancel(message) {
     const wasActive = active || watch.running;

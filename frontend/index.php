@@ -66,9 +66,9 @@ $data = getLatestData($file);
   <link rel="stylesheet" href="assets/app.css?v=8">
   <link rel="stylesheet" href="assets/insights.css?v=3">
   <script src="assets/camera.js?v=1" defer></script>
-  <script src="assets/app.js?v=10" defer></script>
+  <script src="assets/app.js?v=11" defer></script>
   <script src="assets/watch.js?v=1" defer></script>
-  <script src="assets/insights.js?v=4" defer></script>
+  <script src="assets/insights.js?v=5" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Перейти к анализу</a>
@@ -79,7 +79,7 @@ $data = getLatestData($file);
     <button class="nav-link active" id="show-analysis" aria-current="page"><?= icon('grid') ?>Анализ поля<span class="nav-dot"></span></button>
   </nav>
   <div class="sidebar-note"><div class="mini-leaf"><?= icon('leaf') ?></div><strong>Забота о поле.<br>Точность в деталях.</strong><p>Компьютерное зрение<br>для вашего хозяйства.</p><div class="field-lines"></div></div>
-  <div class="sidebar-footer"><span class="connection-dot"></span><span>EginQanat AI <small>Модель YOLO11</small></span><span class="version">v2.0</span></div>
+  <div class="sidebar-footer"><span class="connection-dot"></span><span>EginQanat AI</span></div>
 </aside>
 <div class="workspace">
   <header class="topbar"><div><span class="breadcrumb">Рабочее пространство</span><span class="slash">/</span><span id="breadcrumb-current">Анализ поля</span></div><span class="top-right"><?= icon('leaf') ?> Умное земледелие</span></header>
@@ -122,7 +122,7 @@ $data = getLatestData($file);
             <video id="video-preview" controls playsinline hidden></video>
             <video id="camera-video" autoplay muted playsinline hidden></video>
             <canvas id="camera-canvas" hidden aria-label="Кадр камеры с найденными объектами"></canvas>
-            <div id="processing" class="processing" hidden><span class="spinner"></span><strong id="processing-text">Анализируем снимок…</strong><span>Модель работает на ноутбуке</span></div>
+            <div id="processing" class="processing" hidden><span class="spinner"></span><strong id="processing-text">Анализируем снимок…</strong></div>
           </div>
           <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden>
           <div class="file-meta" id="file-meta" hidden><span id="file-name"></span><button class="text-button" id="reset-file">Удалить</button></div>
@@ -133,7 +133,6 @@ $data = getLatestData($file);
             <p class="small-note">В OBS выберите сцену с телефоном, дроном или камерой и нажмите «Запустить виртуальную камеру». Затем выберите OBS здесь. Для списка устройств браузер запросит доступ к камере.</p>
           </div>
           <div class="controls"><button class="button primary" id="analyze" disabled><?= icon('scan') ?><span id="analyze-label">Начать анализ</span></button><button class="button secondary" id="stop" hidden>Остановить</button></div>
-          <div class="privacy-note"><?= icon('shield') ?><span>Анализ выполняется вашей моделью на ноутбуке.</span></div>
         </section>
         <section class="results-card card" aria-live="polite" aria-atomic="false">
           <div class="card-top"><div><span class="section-number">02</span><h2>Результаты анализа</h2></div><span class="small-dot"></span></div>
@@ -145,26 +144,23 @@ $data = getLatestData($file);
           <div id="timeline" class="timeline" hidden aria-label="Число обнаружений по времени"></div>
           <div class="downloads" id="downloads" hidden><a id="download-media" class="text-button" download><?= icon('download') ?>Результат</a><button id="download-json" class="text-button">Отчёт JSON</button></div>
           <button class="button advice-button" id="advice" disabled><?= icon('spark') ?>Начать общий анализ<?= icon('arrow') ?></button>
-          <p class="small-note advice-note" id="advice-note">Совместный анализ кадра и показаний ESP32.</p>
           <div id="advice-text" class="advice-text" hidden></div>
         </section>
       </div>
       <section class="ai-panel card" id="ai-panel" aria-labelledby="ai-heading">
-        <div class="sensors-heading"><div><span class="sensor-kicker">GEMINI · ИЗОБРАЖЕНИЕ + ESP32</span><h2 id="ai-heading">Наблюдение и прогноз рисков</h2></div><span class="sensor-state" id="ai-provider">Проверяем Gemini</span></div>
+        <div class="sensors-heading"><div><h2 id="ai-heading">Наблюдение и прогноз рисков</h2></div></div>
         <p class="ai-intro">Сопоставьте вид растения с условиями на поле. Получайте наблюдения, условные риски на 24–48 часов и следующие шаги.</p>
         <button class="button secondary" id="ai-stop" hidden>Остановить AI</button>
-        <p class="ai-hint" id="ai-hint">Подключите камеру / OBS или загрузите файл.</p>
-        <p class="ai-disclosure">После нажатия кнопки кадр и последние показания за 30 минут отправляются в Google Gemini. В режиме наблюдения — новый запрос через 30 секунд после ответа; расходуется квота вашего API. При скрытии вкладки режим останавливается.</p>
         <div class="ai-status" id="ai-status" role="status">Готов к совместному анализу.</div>
         <div id="ai-empty" class="ai-empty"><span><?= icon('leaf') ?></span><p>Здесь появится совместный отчёт.<br>Если датчиков нет или данные устарели, это будет указано.</p></div>
         <article id="ai-report" hidden>
           <div class="ai-report-head"><a id="ai-frame-link" target="_blank" rel="noopener" title="Открыть кадр наблюдения"><img id="ai-frame" alt="Кадр, использованный в AI-отчёте"></a><div><span class="sensor-kicker">СОХРАНЁННОЕ НАБЛЮДЕНИЕ</span><p id="ai-meta"></p><p id="ai-summary"></p><button class="text-button" id="ai-export" disabled><?= icon('download') ?>Скачать отчёт и показания JSON</button></div></div>
           <div id="ai-details" class="ai-details"></div>
         </article>
-        <details class="ai-journal"><summary>Журнал наблюдений</summary><p class="small-note">Сохраняются отдельные кадры, использованные показания и отчёты — до 500 наблюдений на ноутбуке. Полную видеозапись включайте в OBS.</p><div class="ai-journal-top"><p id="ai-history-note" class="small-note">Загружаем журнал…</p><button class="text-button" id="ai-refresh">Обновить</button></div><div id="ai-history"></div></details>
+        <details class="ai-journal"><summary>Журнал наблюдений</summary><div class="ai-journal-top"><p id="ai-history-note" class="small-note">Загружаем журнал…</p><button class="text-button" id="ai-refresh">Обновить</button></div><div id="ai-history"></div></details>
       </section>
       <section class="sensors-panel card" aria-labelledby="sensors-heading">
-        <div class="sensors-heading"><div><span class="sensor-kicker">ТЕЛЕМЕТРИЯ ESP32</span><h2 id="sensors-heading">Что происходит на поле</h2></div><button id="refresh-sensors" class="sensor-state"><span class="connection-dot"></span><span id="sensor-status">Нет данных</span></button></div>
+        <div class="sensors-heading"><div><h2 id="sensors-heading">Что происходит на поле</h2></div><button id="refresh-sensors" class="sensor-state"><span class="connection-dot"></span><span id="sensor-status">Нет данных</span></button></div>
         <div class="sensor-grid">
 <?php
 // Соединяем ID карточки с названием поля из data.csv.
@@ -190,7 +186,6 @@ $sensorValues = [
             </div>
 <?php endforeach; ?>
         </div>
-        <div class="sensor-footer"><span id="sensor-updated">Ожидаем первое показание от ESP32</span><span>Дождь: сырые значения, без калибровки</span></div>
       </section>
     </section>
     <footer><span>EginQanat AI <span class="footer-dot">·</span> Технологии на стороне вашего поля</span></footer>
