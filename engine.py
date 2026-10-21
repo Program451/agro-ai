@@ -18,6 +18,15 @@ CLASS_NAMES = {
 # Field-condition classes vs. pest classes — used by the UI to group results
 FIELD_CLASSES = {16, 17, 18, 19, 21}
 
+CLASS_NAMES_RU = dict(enumerate([
+    'Тля', 'Злаковые мухи', 'Гусеницы совки', 'Хлебные жуки',
+    'Саранчовые', 'Листоеды', 'Листовые минёры', 'Цикадки',
+    'Медведка', 'Нематоды', 'Паутинные клещи', 'Стеблевые мухи',
+    'Трипсы', 'Долгоносики', 'Проволочники', 'Клопы',
+    'Повреждённое поле', 'Здоровое поле', 'Вспаханное поле',
+    'Поле в стрессе', 'Майский жук', 'Мусор на поле',
+]))
+
 # Deterministic, readable color per class (HUD-style palette)
 _PALETTE = [
     '#E8B93F', '#E2572B', '#4F8F7D', '#5FB0E0', '#C9724D', '#8F6FE0',
@@ -82,10 +91,16 @@ class Detector:
         y2 = np.clip((cy + h / 2 - pad_y) / r, 0, h0)
         boxes_xyxy = np.stack([x1, y1, x2, y2], axis=1)
 
-        idxs = cv2.dnn.NMSBoxes(
-            [[float(b[0]), float(b[1]), float(b[2] - b[0]), float(b[3] - b[1])] for b in boxes_xyxy],
-            confs.tolist(), conf_thres, iou_thres,
-        )
+        # Overlaps are suppressed within each class, never across different classes.
+        idxs = []
+        for cid in np.unique(class_ids):
+            members = np.flatnonzero(class_ids == cid)
+            kept = cv2.dnn.NMSBoxes(
+                [[float(b[0]), float(b[1]), float(b[2] - b[0]), float(b[3] - b[1])]
+                 for b in boxes_xyxy[members]],
+                confs[members].tolist(), conf_thres, iou_thres)
+            if len(kept):
+                idxs.extend(members[np.array(kept).flatten()].tolist())
         results = []
         if len(idxs) > 0:
             for i in np.array(idxs).flatten():
@@ -93,6 +108,7 @@ class Detector:
                 results.append({
                     'class_id': cid,
                     'class_name': CLASS_NAMES.get(cid, str(cid)),
+                    'name_ru': CLASS_NAMES_RU.get(cid, str(cid)),
                     'is_field': cid in FIELD_CLASSES,
                     'confidence': round(float(confs[i]), 4),
                     'box': [round(float(v), 1) for v in boxes_xyxy[i]],
