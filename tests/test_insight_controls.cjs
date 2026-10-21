@@ -79,5 +79,5 @@ test('hiding the page stops continuous observations', async () => {
   ui.document.hidden = true;
   ui.events.visibilitychange();
   assert.equal(ui.watch.running, false);
-  assert.match(ui.nodes.get('ai-status').textContent, /Gemini \+ датчики/);
+  assert.match(ui.nodes.get('ai-status').textContent, /Начать общий анализ/);
 });

@@ -8,8 +8,6 @@ function icon(string $name, string $class = ''): string {
     $paths = [
         'leaf' => '<path d="M20 4c-9-2-17 3-13 10 7 4 12-4 13-10Z"/><path d="m4 21 11-11"/>',
         'grid' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
-        'catalog' => '<path d="M4 4h16v16H4zM4 10h16M10 10v10"/>',
-        'help' => '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 5 2c-2 1-2 1-2 3m0 3h.01"/>',
         'photo' => '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8" cy="9" r="1.5"/><path d="m4 18 6-6 4 4 3-3 4 4"/>',
         'video' => '<rect x="3" y="5" width="13" height="14" rx="3"/><path d="m16 10 5-3v10l-5-3"/>',
         'camera' => '<path d="M8 5 9 3h6l1 2h4v15H4V5z"/><circle cx="12" cy="12" r="4"/>',
@@ -68,9 +66,9 @@ $data = getLatestData($file);
   <link rel="stylesheet" href="assets/app.css?v=8">
   <link rel="stylesheet" href="assets/insights.css?v=3">
   <script src="assets/camera.js?v=1" defer></script>
-  <script src="assets/app.js?v=9" defer></script>
+  <script src="assets/app.js?v=10" defer></script>
   <script src="assets/watch.js?v=1" defer></script>
-  <script src="assets/insights.js?v=3" defer></script>
+  <script src="assets/insights.js?v=4" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Перейти к анализу</a>
@@ -78,8 +76,7 @@ $data = getLatestData($file);
   <a class="brand" href="./"><span class="brand-icon"><?= icon('leaf') ?></span><span>EginQanat <small>AI</small></span></a>
   <div class="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
   <nav aria-label="Главная навигация">
-    <button class="nav-link active" data-page="analysis"><?= icon('grid') ?>Анализ поля<span class="nav-dot"></span></button>
-    <button class="nav-link" data-page="catalog"><?= icon('catalog') ?>Каталог классов</button>
+    <button class="nav-link active" id="show-analysis" aria-current="page"><?= icon('grid') ?>Анализ поля<span class="nav-dot"></span></button>
   </nav>
   <div class="sidebar-note"><div class="mini-leaf"><?= icon('leaf') ?></div><strong>Забота о поле.<br>Точность в деталях.</strong><p>Компьютерное зрение<br>для вашего хозяйства.</p><div class="field-lines"></div></div>
   <div class="sidebar-footer"><span class="connection-dot"></span><span>EginQanat AI <small>Модель YOLO11</small></span><span class="version">v2.0</span></div>
@@ -147,7 +144,7 @@ $data = getLatestData($file);
           <p class="result-note" id="result-note">Результаты появятся после анализа.</p>
           <div id="timeline" class="timeline" hidden aria-label="Число обнаружений по времени"></div>
           <div class="downloads" id="downloads" hidden><a id="download-media" class="text-button" download><?= icon('download') ?>Результат</a><button id="download-json" class="text-button">Отчёт JSON</button></div>
-          <button class="button advice-button" id="advice" disabled><?= icon('spark') ?>Gemini + датчики<?= icon('arrow') ?></button>
+          <button class="button advice-button" id="advice" disabled><?= icon('spark') ?>Начать общий анализ<?= icon('arrow') ?></button>
           <p class="small-note advice-note" id="advice-note">Совместный анализ кадра и показаний ESP32.</p>
           <div id="advice-text" class="advice-text" hidden></div>
         </section>
@@ -196,7 +193,6 @@ $sensorValues = [
         <div class="sensor-footer"><span id="sensor-updated">Ожидаем первое показание от ESP32</span><span>Дождь: сырые значения, без калибровки</span></div>
       </section>
     </section>
-    <section id="page-catalog" hidden><div class="eyebrow">ВАША МОДЕЛЬ</div><h1>Каталог классов<span class="title-dot">.</span></h1><p class="section-intro">17 категорий вредителей и 5 состояний поля из исходной модели.</p><div id="class-catalog" class="class-grid"></div></section>
     <footer><span>EginQanat AI <span class="footer-dot">·</span> Технологии на стороне вашего поля</span></footer>
   </main>
 </div>

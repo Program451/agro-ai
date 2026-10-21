@@ -148,14 +148,9 @@ document.querySelectorAll('[data-mode]').forEach(tab => {
     $('tab-' + mode).focus();
   });
 });
-document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
-  const page = button.dataset.page;
-  if (page !== 'analysis') { revision++; controller?.abort(); busy = false; stopLive(); $('processing').hidden = true; updateButton(); }
-  ['analysis', 'catalog'].forEach(name => $('page-' + name).hidden = name !== page);
-  document.querySelectorAll('.nav-link').forEach(item => item.classList.toggle('active', item.dataset.page === page));
-  $('breadcrumb-current').textContent = { analysis: 'Анализ поля', catalog: 'Каталог классов' }[page];
+$('show-analysis').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'instant' });
-}));
+});
 $('choose-file').addEventListener('click', () => $('file-input').click());
 $('file-input').addEventListener('change', event => handleFile(event.target.files[0]));
 $('video-preview').addEventListener('error', () => {
@@ -478,22 +473,12 @@ async function checkHealth() {
     $('advice-note').textContent = adviceAvailable ? 'По запросу кадр и показания отправляются в Gemini.' : 'Для рекомендаций задайте GEMINI_API_KEY в .env на ноутбуке.';
     if (!classes.length) {
       classes = (await api('/classes')).classes;
-      $('class-catalog').replaceChildren();
-      classes.forEach(item => {
-        const card = document.createElement('article'), name = document.createElement('strong');
-        const english = document.createElement('p'), group = document.createElement('small');
-        card.className = 'class-item';
-        name.textContent = item.name_ru; english.textContent = item.name;
-        group.textContent = item.is_field ? 'Состояние поля' : 'Вредитель';
-        card.append(name, english, group); $('class-catalog').append(card);
-      });
     }
   } catch (error) {
     ready = false;
     $('connection').className = 'status offline';
     $('connection-label').textContent = 'Ноутбук не подключён';
     message(error.message);
-    if (!classes.length) $('class-catalog').textContent = 'Включите бэкенд на ноутбуке и нажмите индикатор подключения, чтобы загрузить каталог.';
   }
   updateButton();
 }

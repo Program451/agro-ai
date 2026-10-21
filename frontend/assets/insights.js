@@ -25,8 +25,8 @@
     $('ai-provider').textContent = !ready ? 'Нет связи с ноутбуком' : adviceAvailable ? 'Gemini настроен' : 'Нужен ключ Gemini';
     $('ai-provider').className = 'sensor-state ' + (ready && adviceAvailable ? 'online' : 'offline');
     $('ai-hint').textContent = watch.running ? 'Наблюдаем: следующий кадр через 30 секунд после ответа. Сеанс до 30 минут.' :
-      mode === 'camera' ? (live ? 'Камера подключена. Нажмите «Gemini + датчики», чтобы начать наблюдение.' :
-        'Подключите камеру / OBS, затем нажмите «Gemini + датчики».') :
+      mode === 'camera' ? (live ? 'Камера подключена. Нажмите «Начать общий анализ», чтобы начать наблюдение.' :
+        'Подключите камеру / OBS, затем нажмите «Начать общий анализ».') :
       'Для файла анализируется выбранный кадр. Время съёмки неизвестно; датчики показывают текущую обстановку.';
   }
   function cancel(message) {
@@ -194,7 +194,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && (watch.running || active)) cancel('Вкладка скрыта — AI-наблюдение остановлено. Для продолжения нажмите «Gemini + датчики».');
+    if (document.hidden && (watch.running || active)) cancel('Вкладка скрыта — AI-наблюдение остановлено. Для продолжения нажмите «Начать общий анализ».');
   });
   window.addEventListener('beforeunload', () => cancel());
   window.agroInsights = { update, cancel };
