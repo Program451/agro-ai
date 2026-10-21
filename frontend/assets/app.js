@@ -51,7 +51,6 @@ function updateButton() {
   $('connect-obs-label').textContent = mode === 'camera' && busy ? 'Подключаем OBS…' : 'Подключить OBS';
   $('choose-file').disabled = busy;
   $('reset-file').disabled = busy;
-  $('confidence').disabled = busy || live;
   $('camera-device').disabled = busy || live || cameraDevicesLoading;
   $('refresh-cameras').disabled = busy || live || cameraDevicesLoading;
   $('stop').hidden = !live;
@@ -152,12 +151,11 @@ document.querySelectorAll('[data-mode]').forEach(tab => {
 document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
   const page = button.dataset.page;
   if (page !== 'analysis') { revision++; controller?.abort(); busy = false; stopLive(); $('processing').hidden = true; updateButton(); }
-  ['analysis', 'catalog', 'guide'].forEach(name => $('page-' + name).hidden = name !== page);
+  ['analysis', 'catalog'].forEach(name => $('page-' + name).hidden = name !== page);
   document.querySelectorAll('.nav-link').forEach(item => item.classList.toggle('active', item.dataset.page === page));
-  $('breadcrumb-current').textContent = { analysis: 'Анализ поля', catalog: 'Каталог классов', guide: 'Как это работает' }[page];
+  $('breadcrumb-current').textContent = { analysis: 'Анализ поля', catalog: 'Каталог классов' }[page];
   window.scrollTo({ top: 0, behavior: 'instant' });
 }));
-$('confidence').addEventListener('input', () => $('confidence-value').textContent = $('confidence').value + '%');
 $('choose-file').addEventListener('click', () => $('file-input').click());
 $('file-input').addEventListener('change', event => handleFile(event.target.files[0]));
 $('video-preview').addEventListener('error', () => {
@@ -246,7 +244,7 @@ async function analyzeFile() {
     const data = new FormData();
     data.append('file', file);
     let result = await api('/detect/' + (mode === 'photo' ? 'image' : 'video'),
-      { method: 'POST', body: data, signal: controller.signal }, { conf: Number($('confidence').value) / 100 });
+      { method: 'POST', body: data, signal: controller.signal });
     if (current !== revision) return;
     if (mode === 'video') {
       const jobId = result.job_id;
@@ -357,7 +355,7 @@ async function startCamera() {
       try {
         const data = await api('/detect/frame', {
           method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: capture.toDataURL('image/jpeg', 0.75), conf: Number($('confidence').value) / 100 })
+          body: JSON.stringify({ image: capture.toDataURL('image/jpeg', 0.75) })
         });
         if (!live || current !== revision) return;
         const draw = canvas.getContext('2d');
@@ -430,7 +428,7 @@ async function updateSensors() {
   if (sensorLoading) return;
   clearTimeout(sensorTimer);
   sensorLoading = true;
-  const fields = ['temperature_c', 'humidity_pct', 'pressure_hpa', 'altitude_m', 'rain_raw', 'soil_raw'];
+  const fields = ['temperature_c', 'humidity_pct', 'pressure_hpa', 'altitude_m', 'rain_raw'];
   try {
     const data = await api('/sensors');
     const reading = data.reading;

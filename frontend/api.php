@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 // Same-origin gateway: the browser never sees the laptop token or its private address.
+const AGRO_DETECTION_CONFIDENCE = 0.35;
 function fail(int $code, string $message): never {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
@@ -51,8 +52,11 @@ if ($method === 'POST') {
     if (($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '') === 'cross-site') fail(403, 'Источник запроса не разрешён');
 }
 $query = [];
-foreach (['conf', 'max_seconds', 'url', 'session_id'] as $key) {
+foreach (['max_seconds', 'url', 'session_id'] as $key) {
     if (isset($_GET[$key]) && is_string($_GET[$key])) $query[$key] = $_GET[$key];
+}
+if (in_array($path, ['/detect/image', '/detect/video', '/stream'], true)) {
+    $query['conf'] = AGRO_DETECTION_CONFIDENCE;
 }
 $url = $base . '/api' . $path . ($query ? '?' . http_build_query($query) : '');
 $curl = curl_init($url);
@@ -81,6 +85,12 @@ if ($method === 'POST') {
     } else {
         $body = file_get_contents('php://input', false, null, 0, 28000001);
         if (strlen($body) > 28000000) fail(413, 'Запрос слишком большой.');
+        if ($path === '/detect/frame') {
+            $frame = json_decode($body);
+            if (!$frame instanceof stdClass) fail(400, 'Неверный формат кадра.');
+            $frame->conf = AGRO_DETECTION_CONFIDENCE;
+            $body = json_encode($frame, JSON_THROW_ON_ERROR);
+        }
         $headers[] = 'Content-Type: application/json';
         $options[CURLOPT_HTTPHEADER] = $headers;
         $options[CURLOPT_POSTFIELDS] = $body;

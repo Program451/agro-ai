@@ -65,10 +65,10 @@ $data = getLatestData($file);
   <meta name="description" content="EginQanat AI — анализ вредителей и состояния поля по фото и видео.">
   <title>Анализ поля · EginQanat AI</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/app.css?v=7">
+  <link rel="stylesheet" href="assets/app.css?v=8">
   <link rel="stylesheet" href="assets/insights.css?v=3">
   <script src="assets/camera.js?v=1" defer></script>
-  <script src="assets/app.js?v=8" defer></script>
+  <script src="assets/app.js?v=9" defer></script>
   <script src="assets/watch.js?v=1" defer></script>
   <script src="assets/insights.js?v=3" defer></script>
 </head>
@@ -80,7 +80,6 @@ $data = getLatestData($file);
   <nav aria-label="Главная навигация">
     <button class="nav-link active" data-page="analysis"><?= icon('grid') ?>Анализ поля<span class="nav-dot"></span></button>
     <button class="nav-link" data-page="catalog"><?= icon('catalog') ?>Каталог классов</button>
-    <button class="nav-link" data-page="guide"><?= icon('help') ?>Как это работает</button>
   </nav>
   <div class="sidebar-note"><div class="mini-leaf"><?= icon('leaf') ?></div><strong>Забота о поле.<br>Точность в деталях.</strong><p>Компьютерное зрение<br>для вашего хозяйства.</p><div class="field-lines"></div></div>
   <div class="sidebar-footer"><span class="connection-dot"></span><span>EginQanat AI <small>Модель YOLO11</small></span><span class="version">v2.0</span></div>
@@ -136,7 +135,7 @@ $data = getLatestData($file);
             <div class="camera-select-row"><select id="camera-device"><option value="obs-auto">OBS Virtual Camera</option><option value="default">Камера по умолчанию</option></select><button id="refresh-cameras" class="button secondary" type="button">Найти камеры</button></div>
             <p class="small-note">В OBS выберите сцену с телефоном, дроном или камерой и нажмите «Запустить виртуальную камеру». Затем выберите OBS здесь. Для списка устройств браузер запросит доступ к камере.</p>
           </div>
-          <div class="controls"><div class="confidence"><div><label for="confidence">Порог уверенности</label><output id="confidence-value" for="confidence">35%</output></div><input type="range" id="confidence" min="10" max="90" step="5" value="35"><div class="range-labels"><span>Больше объектов</span><span>Выше точность</span></div></div><button class="button primary" id="analyze" disabled><?= icon('scan') ?><span id="analyze-label">Начать анализ</span></button><button class="button secondary" id="stop" hidden>Остановить</button></div>
+          <div class="controls"><button class="button primary" id="analyze" disabled><?= icon('scan') ?><span id="analyze-label">Начать анализ</span></button><button class="button secondary" id="stop" hidden>Остановить</button></div>
           <div class="privacy-note"><?= icon('shield') ?><span>Анализ выполняется вашей моделью на ноутбуке.</span></div>
         </section>
         <section class="results-card card" aria-live="polite" aria-atomic="false">
@@ -187,7 +186,6 @@ $sensorValues = [
     ['pressure_hpa','pressure','Давление','гПа'],
     ['altitude_m','altitude','Высота','м'],
     ['rain_raw','rain','Датчик дождя','ADC'],
-    ['soil_raw','leaf','Датчик почвы','ADC'],
 ] as [$key,$symbol,$label,$unit]): ?>
             <div class="sensor-tile">
               <span class="sensor-label"><?= icon($symbol) ?><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></span>
@@ -195,21 +193,10 @@ $sensorValues = [
             </div>
 <?php endforeach; ?>
         </div>
-        <div class="sensor-footer"><span id="sensor-updated">Ожидаем первое показание от ESP32</span><span>Дождь и почва: сырые значения, без калибровки</span></div>
+        <div class="sensor-footer"><span id="sensor-updated">Ожидаем первое показание от ESP32</span><span>Дождь: сырые значения, без калибровки</span></div>
       </section>
-      <div class="taxonomy-strip"><span><?= icon('leaf') ?>Возможности модели</span><div><strong>22</strong> класса<span class="divider"></span><strong>17</strong> видов вредителей<span class="divider"></span><strong>5</strong> состояний поля</div><button class="text-button" data-page="catalog">Все классы <?= icon('arrow') ?></button></div>
-      <div class="steps"><?php
-        $steps = [
-            ['01', 'photo', 'Загрузите', 'Выберите чёткий снимок листьев, всходов или участка поля при хорошем освещении.'],
-            ['02', 'scan', 'Проанализируйте', 'Настройте порог уверенности. Модель выделит знакомые ей объекты и состояния.'],
-            ['03', 'leaf', 'Изучите результат', 'Проверьте находки на снимке и сохраните результат для дальнейшего осмотра.'],
-        ];
-        foreach ($steps as [$number, $symbol, $title, $description]): ?>
-        <article class="step"><div><span><?= $number ?></span><?= icon($symbol) ?></div><h3><?= $title ?></h3><p><?= $description ?></p></article>
-      <?php endforeach; ?></div>
     </section>
     <section id="page-catalog" hidden><div class="eyebrow">ВАША МОДЕЛЬ</div><h1>Каталог классов<span class="title-dot">.</span></h1><p class="section-intro">17 категорий вредителей и 5 состояний поля из исходной модели.</p><div id="class-catalog" class="class-grid"></div></section>
-    <section id="page-guide" hidden><div class="eyebrow">КОРОТКО О ГЛАВНОМ</div><h1>Как это работает<span class="title-dot">.</span></h1><div class="guide card"><h2>Сайт на хостинге, анализ на ноутбуке</h2><p>PHP-сайт передаёт файл через защищённое соединение вашему Python-серверу. Модель YOLO11 распознаёт объекты и возвращает снимок с разметкой. Ноутбук, Python-сервер и туннель должны быть включены.</p><h2>Три способа анализа</h2><p><strong>Фото:</strong> JPG, PNG или WebP до 20 МБ. <strong>Видео:</strong> файл до 200 МБ; анализируются первые 60 секунд, примерно пять кадров в секунду. Ограничения вашего хостинга могут быть ниже. Звук в обработанном видео не сохраняется.</p><p><strong>Камера / OBS:</strong> включите виртуальную камеру в OBS, затем нажмите «Подключить OBS» на сайте. Источники телефона, дрона и ноутбука переключайте в OBS. Сайт на хостинге должен работать по HTTPS.</p><h2>OBS и ESP32</h2><p>Выбирайте телефон, дрон или веб-камеру в сценах OBS. Включите OBS Virtual Camera, откройте сайт на том же компьютере и выберите её в разделе «Камера / OBS». EginQanat AI получает итоговую сцену, а вы переключаете источники в OBS.</p><p>Панель ESP32 показывает последние измерения температуры, влажности, давления, высоты, дождя и почвы. Обновления проверяются каждые пять секунд. Если новых показаний нет две минуты, данные отмечаются как устаревшие. Для дождя и почвы показаны сырые значения до калибровки.</p><h2>Что означает уверенность</h2><p>Это оценка модели для найденного объекта, а не гарантия правильного распознавания. Отсутствие обнаружений не доказывает, что поле здорово. Сопоставляйте результат с осмотром растений.</p><h2>Рекомендации и данные</h2><p>Gemini сопоставляет кадр и показания ESP32. Нажмите «Gemini + датчики»: для фото и видео выполняется один анализ, для подключённой камеры / OBS запускается AI-наблюдение. В режиме наблюдения новый кадр отправляется через 30 секунд после ответа; сеанс длится до 30 минут и останавливается при скрытии вкладки. Google получает кадр, данные датчика и предположения локальной модели. Датчик выбирается автоматически. Расходуется квота вашего API. Ключ хранится только в .env на ноутбуке.</p><p>Риски на 24–48 часов условны и зависят от качества данных. Датчик должен находиться на показанном участке. Старые фото и записи сопоставляются с текущими датчиками с отметкой о различии времени. Rain и Soil без калибровки не означают процент влажности или количество осадков. Отчёт показывает отсутствие или устаревание показаний.</p><p>Журнал на ноутбуке хранит до 500 отдельных кадров с отчётами и использованными данными. Полную видеозапись включайте в OBS. Уже отправленный запрос Gemini может завершиться после остановки. Фото и видео проходят через хостинг и туннель к ноутбуку. Обработанные видео старше суток очищаются при следующем запуске или загрузке видео.</p></div></section>
     <footer><span>EginQanat AI <span class="footer-dot">·</span> Технологии на стороне вашего поля</span></footer>
   </main>
 </div>
