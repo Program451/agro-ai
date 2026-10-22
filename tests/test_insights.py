@@ -107,9 +107,9 @@ def test_missing_sensors_and_recording_are_not_claimed_synchronous(monkeypatch):
     detector = Mock(); detector.infer.return_value = []
     result = insights.analyze(payload(source="video"), detector)
     assert result["sensors"]["status"] == "empty"
-    assert any("Время съёмки" in warning for warning in result["warnings"])
-    assert any("Свежих показаний" in warning for warning in result["warnings"])
-    assert any("истории" in warning for warning in result["warnings"])
+    assert any("дату съёмки" in warning and "условия в записи могут отличаться" in warning for warning in result["warnings"])
+    assert any("измерьте текущую температуру" in warning for warning in result["warnings"])
+    assert any("несколько последовательных замеров" in warning for warning in result["warnings"])
 
 
 def test_provider_uses_image_structured_output_and_header_only(monkeypatch):

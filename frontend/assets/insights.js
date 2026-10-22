@@ -130,7 +130,7 @@
     const content = $('ai-details'); content.replaceChildren();
     const risks = node('section', '', 'ai-section');
     risks.append(node('h3', 'Условные риски · 24–48 часов'));
-    if (!data.assessment.risks.length) risks.append(node('p', 'Недостаточно оснований для прогноза рисков поля.'));
+    if (!data.assessment.risks.length) risks.append(node('p', 'Выводы о рисках требуют проверки участка. Начните с рекомендаций ниже.'));
     data.assessment.risks.forEach(risk => {
       const card = node('article', '', 'ai-risk');
       const basis = { image: 'По снимку', sensors: 'По актуальным показаниям', combined: 'По снимку и актуальным показаниям' }[risk.basis];
@@ -148,7 +148,7 @@
         (trend ? ` · изменение ${trend.delta > 0 ? '+' : ''}${trend.delta} за ${trend.minutes} мин (${trend.count} замеров)` : ' · тренд пока неизвестен'));
     });
     list('Датчики, использованные в отчёте', measures, content);
-    list('Ограничения оценки', [...new Set([...data.warnings, ...data.assessment.limitations])], content);
+    list('Условия и проверки', [...new Set([...data.warnings, ...data.assessment.limitations])], content);
     $('ai-export').disabled = false;
   }
   async function refreshHistory() {
