@@ -152,7 +152,7 @@ $data = getLatestData($file);
         <p class="ai-intro">Сопоставьте вид растения с условиями на поле. Получайте наблюдения, условные риски на 24–48 часов и следующие шаги.</p>
         <button class="button secondary" id="ai-stop" hidden>Остановить AI</button>
         <div class="ai-status" id="ai-status" role="status">Готов к совместному анализу.</div>
-        <div id="ai-empty" class="ai-empty"><span><?= icon('leaf') ?></span><p>Здесь появится совместный отчёт.<br>Если датчиков нет или данные устарели, это будет указано.</p></div>
+        <div id="ai-empty" class="ai-empty"><span><?= icon('leaf') ?></span><p>Здесь появится агрономическое заключение.<br>Состояние участка, возможные риски и рекомендации по уходу.</p></div>
         <article id="ai-report" hidden>
           <div class="ai-report-head"><a id="ai-frame-link" target="_blank" rel="noopener" title="Открыть кадр наблюдения"><img id="ai-frame" alt="Кадр, использованный в AI-отчёте"></a><div><span class="sensor-kicker">СОХРАНЁННОЕ НАБЛЮДЕНИЕ</span><p id="ai-meta"></p><p id="ai-summary"></p><button class="text-button" id="ai-export" disabled><?= icon('download') ?>Скачать отчёт и показания JSON</button></div></div>
           <div id="ai-details" class="ai-details"></div>
